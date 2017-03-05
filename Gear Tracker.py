@@ -1,26 +1,29 @@
-#http://docs.opencv.org/trunk/dd/d49/tutorial_py_contour_features.html
-#http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_filtering/py_filtering.html
-#http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_morphological_ops/py_morphological_ops.html
-#http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=findcontours#findcontours
-
 import cv2
 import numpy as np
 from networktables import NetworkTables
 import urllib
 import time
+from shivelyCV import SmartContours
 
-cameraURL = 'http://10.42.56.3/mjpg/video.mjpg'#'http://192.168.0.146:4747/mjpegfeed?340x280'
+#{DEFINE FUNCTIONS}
+def slope(pointA, pointB):
+    try:
+        return (float(pointA[0] - pointB[0])/float(pointA[1] - pointB[1]))
+    except ZeroDivisionError:
+        return 0
+#{SETUP STREAM}
+cameraURL = 'http://192.168.0.145:4747/mjpegfeed?340x280'#'http://10.42.56.3/mjpg/video.mjpg'
 stream = urllib.urlopen(cameraURL)
+found = False
+bytes = ''
+image_bytes = ''
+#{SETUP NETWORKTABLES}
 rioURL = 'roborio-4256-frc.local'
 NetworkTables.initialize(server = rioURL)
 table = NetworkTables.getTable('axis')
-bytes = ''
-image_bytes = ''
+#{SET OPENCV PARAMETERS}
 kernel = np.ones((5,5),np.uint8)
-found = False
-frames = 0
-start = int(time.time()*1000)
-
+#{MAIN}
 while (True):
     bytes = stream.read(1024)
     a = bytes.find('\xff\xd8')
@@ -46,36 +49,26 @@ while (True):
         image_bytes = bytes[a:]
         found = True
     if (found):
-        frames += 1
-        print(frames*1000/(int(time.time()*1000) - start))
-        frame = cv2.imdecode(np.fromstring(jpg, dtype = np.uint8), cv2.IMREAD_COLOR)
-        cv2.imshow('raw', frame)
+        frame = cv2.imdecode(np.fromstring(jpg, dtype = np.uint8), -1)
         #-----------------------------------------------------------------------
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         v = hsv[:,:,2]
         v[v >= 130] = 255
         v[v < 130] = 0
-        hsv[:,:,2] = v
-
-        #morphology: http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_morphological_ops/py_morphological_ops.html
         closed = cv2.morphologyEx(v, cv2.MORPH_CLOSE, kernel)
-        ret, contours, hierarchy = cv2.findContours(closed, mode = cv2.RETR_EXTERNAL, method = cv2.CHAIN_APPROX_SIMPLE)
-
-        for contour in contours:
-            #hull = cv2.convexHull(contour, clockwise = False, returnPoints = False)
-            #epsilon = 0.1*cv2.arcLength(contour, True)
-            #approx = cv2.approxPolyDP(contour, epsilon, True)
-            hull = cv2.convexHull(contour)
-            cv2.drawContours(hsv, contour, -1, (60,100,100), -1)
-            print(cv2.isContourConvex(contour))
-
-        #cv2.drawContours(hsv, contours, -1, (60,100,100), -1)
-        frame = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+        ret, contours, hierarchy = cv2.findContours(closed, mode = cv2.RETR_LIST, method = cv2.CHAIN_APPROX_SIMPLE)
+        contours = SmartContours(contours)
+        contours.think(targetAspect = .38, approxTightness = .92)
+        cv2.circle(frame, contours.center(), 5, (0, 0, 0))
+        #table.putNumber('gear x', contours.center()[0])
+        #table.putNumber('gear y', contours.center()[1])
+        if (contours.rectangles.count() is 2):
+            cv2.line(frame, contours.rectangles.center(0), contours.rectangles.center(1), (0, 0, 255), thickness = 5)
         #-----------------------------------------------------------------------
-        cv2.imshow("frame", frame)
+        cv2.imshow('frame', frame)
         found = False
         ch = 0xFF & cv2.waitKey(1)
-        if ch == 27:
+        if (ch == 27):
             break
 
 cv2.destroyAllWindows()
