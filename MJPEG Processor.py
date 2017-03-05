@@ -16,7 +16,8 @@ NetworkTables.initialize(server = rioURL)
 table = NetworkTables.getTable('axis')
 bytes = ''
 image_bytes = ''
-kernel = np.ones((5,5),np.uint8)
+kernel = np.ones((30,10),np.uint8)
+#kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (300,300))
 found = False
 frames = 0
 start = int(time.time()*1000)
@@ -47,7 +48,7 @@ while (True):
         found = True
     if (found):
         frames += 1
-        print(frames*1000/(int(time.time()*1000) - start))
+        #print(frames*1000/(max(int(time.time()*1000) - start, 1)))
         frame = cv2.imdecode(np.fromstring(jpg, dtype = np.uint8), cv2.IMREAD_COLOR)
         cv2.imshow('raw', frame)
         #-----------------------------------------------------------------------
@@ -58,18 +59,14 @@ while (True):
         hsv[:,:,2] = v
 
         #morphology: http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_morphological_ops/py_morphological_ops.html
-        closed = cv2.morphologyEx(v, cv2.MORPH_CLOSE, kernel)
-        ret, contours, hierarchy = cv2.findContours(closed, mode = cv2.RETR_EXTERNAL, method = cv2.CHAIN_APPROX_SIMPLE)
+        opened = cv2.morphologyEx(v, cv2.MORPH_OPEN, kernel)
+        contours, hierarchy = cv2.findContours(opened, mode = cv2.RETR_EXTERNAL, method = cv2.CHAIN_APPROX_SIMPLE)
 
         for contour in contours:
-            #hull = cv2.convexHull(contour, clockwise = False, returnPoints = False)
-            #epsilon = 0.1*cv2.arcLength(contour, True)
-            #approx = cv2.approxPolyDP(contour, epsilon, True)
-            hull = cv2.convexHull(contour)
-            cv2.drawContours(hsv, contour, -1, (60,100,100), -1)
-            print(cv2.isContourConvex(contour))
+            contourRectangle = np.int0(cv2.cv.BoxPoints(cv2.minAreaRect(contour)))
+            cv2.rectangle(hsv, tuple(contourRectangle[0]), tuple(contourRectangle[2]), (0,255,255), 2)
+            cv2.drawContours(hsv, [contourRectangle], 0, (120,255,255), 2)
 
-        #cv2.drawContours(hsv, contours, -1, (60,100,100), -1)
         frame = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
         #-----------------------------------------------------------------------
         cv2.imshow("frame", frame)
