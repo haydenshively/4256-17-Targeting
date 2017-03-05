@@ -1,8 +1,3 @@
-#http://docs.opencv.org/trunk/dd/d49/tutorial_py_contour_features.html
-#http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_filtering/py_filtering.html
-#http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_morphological_ops/py_morphological_ops.html
-#http://docs.opencv.org/2.4/modules/imgproc/doc/structural_analysis_and_shape_descriptors.html?highlight=findcontours#findcontours
-
 import cv2
 import numpy as np
 from networktables import NetworkTables
@@ -17,10 +12,7 @@ table = NetworkTables.getTable('axis')
 bytes = ''
 image_bytes = ''
 kernel = np.ones((30,10),np.uint8)
-#kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (300,300))
 found = False
-frames = 0
-start = int(time.time()*1000)
 
 while (True):
     bytes = stream.read(1024)
@@ -47,8 +39,6 @@ while (True):
         image_bytes = bytes[a:]
         found = True
     if (found):
-        frames += 1
-        #print(frames*1000/(max(int(time.time()*1000) - start, 1)))
         frame = cv2.imdecode(np.fromstring(jpg, dtype = np.uint8), cv2.IMREAD_COLOR)
         cv2.imshow('raw', frame)
         #-----------------------------------------------------------------------
@@ -57,14 +47,15 @@ while (True):
         v[v >= 130] = 255
         v[v < 130] = 0
         hsv[:,:,2] = v
-
-        #morphology: http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_morphological_ops/py_morphological_ops.html
+        
         opened = cv2.morphologyEx(v, cv2.MORPH_OPEN, kernel)
-        contours, hierarchy = cv2.findContours(opened, mode = cv2.RETR_EXTERNAL, method = cv2.CHAIN_APPROX_SIMPLE)
+        ret, contours, hierarchy = cv2.findContours(opened, mode = cv2.RETR_EXTERNAL, method = cv2.CHAIN_APPROX_SIMPLE)
 
         for contour in contours:
-            contourRectangle = np.int0(cv2.cv.BoxPoints(cv2.minAreaRect(contour)))
-            cv2.rectangle(hsv, tuple(contourRectangle[0]), tuple(contourRectangle[2]), (0,255,255), 2)
+            contourRectangle = np.int0(cv2.boxPoints(cv2.minAreaRect(contour)))
+            avg = np.mean(contourRectangle, 0)
+            ratio = abs((contourRectangle[0][1] - avg[1])/(contourRectangle[0][0] - avg[0]))
+            print(abs(ratio))
             cv2.drawContours(hsv, [contourRectangle], 0, (120,255,255), 2)
 
         frame = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
