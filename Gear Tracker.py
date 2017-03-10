@@ -12,17 +12,20 @@ def slope(pointA, pointB):
     except ZeroDivisionError:
         return 0
 #{SETUP STREAM}
-cameraURL = 'http://192.168.0.145:4747/mjpegfeed?340x280'#'http://10.42.56.3/mjpg/video.mjpg'
+cameraURL = 'http://10.42.56.3/mjpg/video.mjpg'
 stream = urllib.urlopen(cameraURL)
 found = False
 bytes = ''
 image_bytes = ''
 #{SETUP NETWORKTABLES}
-rioURL = 'roborio-4256-frc.local'
+rioURL = '10.42.56.2'#'roborio-4256-frc.local'
 NetworkTables.initialize(server = rioURL)
 table = NetworkTables.getTable('axis')
-#{SET OPENCV PARAMETERS}
+#{SET PARAMETERS}
 kernel = np.ones((5,5),np.uint8)
+aspectRatio = .38
+confidenceThresh = 80
+uniformityThresh = 80
 #{MAIN}
 while (True):
     bytes = stream.read(1024)
@@ -51,15 +54,26 @@ while (True):
     if (found):
         frame = cv2.imdecode(np.fromstring(jpg, dtype = np.uint8), -1)
         #-----------------------------------------------------------------------
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        v = hsv[:,:,2]
-        v[v >= 130] = 255
-        v[v < 130] = 0
-        closed = cv2.morphologyEx(v, cv2.MORPH_CLOSE, kernel)
+        luv = cv2.cvtColor(frame, cv2.COLOR_BGR2LUV)
+        l = luv[:,:,0]
+        l[l >= 160] = 255
+        l[l < 160] = 0
+
+        opened = cv2.morphologyEx(l, cv2.MORPH_OPEN, kernel)
+        closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
+
         ret, contours, hierarchy = cv2.findContours(closed, mode = cv2.RETR_LIST, method = cv2.CHAIN_APPROX_SIMPLE)
         contours = SmartContours(contours)
-        contours.think(targetAspect = .38, approxTightness = .92)
-        cv2.circle(frame, contours.center(), 5, (0, 0, 0))
+        contours.think(targetAspect = aspectRatio)
+
+        centers = []
+        for i in range(0, contours.rectangles.count()):
+            if (contours.rectangles.confidence(i) > confidenceThresh and contours.rectangles.uniformity(i) > uniformityThresh):
+                cv2.circle(frame, contours.rectangles.center(i), 6, (255, 102, 178), thickness = -1)
+                centers.append(contours.rectangles.center(i))
+        cv2.putText(frame, str(len(centers)), (0, 0), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 102, 178), bottomLeftOrigin = True)
+        if len(centers) is 2:
+            cv2.line(frame, centers[0], centers[1], (255, 102, 178), thickness = 4)
         #table.putNumber('gear x', contours.center()[0])
         #table.putNumber('gear y', contours.center()[1])
         if (contours.rectangles.count() is 2):
