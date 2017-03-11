@@ -56,8 +56,9 @@ while (True):
         #-----------------------------------------------------------------------
         luv = cv2.cvtColor(frame, cv2.COLOR_BGR2LUV)
         l = luv[:,:,0]
-        l[l >= 160] = 255
-        l[l < 160] = 0
+        l[l >= 140] = 255
+        l[l < 140] = 0
+        cv2.imshow("l", l)
 
         opened = cv2.morphologyEx(l, cv2.MORPH_OPEN, kernel)
         closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
@@ -68,10 +69,13 @@ while (True):
 
         centers = []
         for i in range(0, contours.rectangles.count()):
+            print contours.rectangles.confidence(i)
+            print contours.rectangles.uniformity(i)
             if (contours.rectangles.confidence(i) > confidenceThresh and contours.rectangles.uniformity(i) > uniformityThresh):
                 cv2.circle(frame, contours.rectangles.center(i), 6, (255, 102, 178), thickness = -1)
                 centers.append(contours.rectangles.center(i))
         cv2.putText(frame, str(len(centers)), (0, 0), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 102, 178), bottomLeftOrigin = True)
+        print(len(centers))
         if len(centers) is 2:
             cv2.line(frame, centers[0], centers[1], (255, 102, 178), thickness = 4)
         #table.putNumber('gear x', contours.center()[0])
