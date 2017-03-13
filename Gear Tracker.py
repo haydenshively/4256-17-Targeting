@@ -22,7 +22,7 @@ rioURL = '10.42.56.2'#'roborio-4256-frc.local'
 NetworkTables.initialize(server = rioURL)
 table = NetworkTables.getTable('axis')
 #{SET PARAMETERS}
-kernel = np.ones((5,5),np.uint8)
+kernel = np.ones((30,10),np.uint8)
 aspectRatio = .38
 confidenceThresh = 80
 uniformityThresh = 80
@@ -53,7 +53,7 @@ while (True):
         found = True
     if (found):
         frame = cv2.imdecode(np.fromstring(jpg, dtype = np.uint8), -1)
-        #-----------------------------------------------------------------------
+        #-----------------------------------------------------------------------MAIN PROCESSING
         luv = cv2.cvtColor(frame, cv2.COLOR_BGR2LUV)
         l = luv[:,:,0]
         l[l >= 160] = 255
@@ -72,12 +72,14 @@ while (True):
                 cv2.circle(frame, contours.rectangles.center(i), 6, (255, 102, 178), thickness = -1)
                 centers.append(contours.rectangles.center(i))
         cv2.putText(frame, str(len(centers)), (0, 0), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 102, 178), bottomLeftOrigin = True)
+        table.putNumber('targets', len(centers))
         if len(centers) is 2:
             cv2.line(frame, centers[0], centers[1], (255, 102, 178), thickness = 4)
-        #table.putNumber('gear x', contours.center()[0])
-        #table.putNumber('gear y', contours.center()[1])
-        if (contours.rectangles.count() is 2):
-            cv2.line(frame, contours.rectangles.center(0), contours.rectangles.center(1), (0, 0, 255), thickness = 5)
+            table.putNumber('gear x', (centers[0][0] + centers[1][0])/2)
+            table.putNumber('gear y', (centers[0][1] + centers[1][1])/2)
+        elif len(centers) is 1:
+            table.putNumber('gear x', centers[0][0])
+            table.putNumber('gear y', centers[0][1])
         #-----------------------------------------------------------------------
         cv2.imshow('frame', frame)
         found = False
