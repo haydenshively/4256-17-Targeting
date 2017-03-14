@@ -20,7 +20,8 @@ image_bytes = ''
 #{SETUP NETWORKTABLES}
 rioURL = '10.42.56.2'#'roborio-4256-frc.local'
 NetworkTables.initialize(server = rioURL)
-table = NetworkTables.getTable('axis')
+sender = NetworkTables.getTable('edison')
+receiver = NetworkTables.getTable('LeapStick')#TODO
 #{SET PARAMETERS}
 kernel = np.ones((30,10),np.uint8)
 aspectRatio = .38
@@ -72,14 +73,14 @@ while (True):
                 cv2.circle(frame, contours.rectangles.center(i), 6, (255, 102, 178), thickness = -1)
                 centers.append(contours.rectangles.center(i))
         cv2.putText(frame, str(len(centers)), (0, 0), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 102, 178), bottomLeftOrigin = True)
-        table.putNumber('targets', len(centers))
+        sender.putNumber('targets', len(centers))
         if len(centers) is 2:
             cv2.line(frame, centers[0], centers[1], (255, 102, 178), thickness = 4)
-            table.putNumber('gear x', (centers[0][0] + centers[1][0])/2)
-            table.putNumber('gear y', (centers[0][1] + centers[1][1])/2)
+            sender.putNumber('gear x', (centers[0][0] + centers[1][0])/2)
+            sender.putNumber('gear y', (centers[0][1] + centers[1][1])/2)
         elif len(centers) is 1:
-            table.putNumber('gear x', centers[0][0])
-            table.putNumber('gear y', centers[0][1])
+            sender.putNumber('gear x', centers[0][0])
+            sender.putNumber('gear y', centers[0][1])
         #-----------------------------------------------------------------------
         cv2.imshow('frame', frame)
         found = False
