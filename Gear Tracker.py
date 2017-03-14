@@ -23,7 +23,7 @@ rioURL = '10.42.56.2'#'roborio-4256-frc.local'
 NetworkTables.initialize(server = rioURL)
 table = NetworkTables.getTable('axis')
 #{SET PARAMETERS}
-kernel = np.ones((30,10),np.uint8)
+kernel = np.ones((20,5),np.uint8)
 aspectRatio = .38
 confidenceThresh = 80
 uniformityThresh = 80
@@ -63,14 +63,16 @@ while (True):
         #-----------------------------------------------------------------------
         luv = cv2.cvtColor(filteredFrame, cv2.COLOR_BGR2LUV)
         l = luv[:,:,0]
-        l[l >= 30] = 255
-        l[l < 30] = 0
+        l[l >= 20] = 255
+        l[l < 20] = 0
         cv2.imshow("l", l)
 
-        opened = cv2.morphologyEx(l, cv2.MORPH_OPEN, kernel)
-        closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
+        closed = cv2.morphologyEx(l, cv2.MORPH_CLOSE, kernel)
+        opened = cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel)
 
-        ret, contours, hierarchy = cv2.findContours(closed, mode = cv2.RETR_LIST, method = cv2.CHAIN_APPROX_SIMPLE)
+        cv2.imshow("post-processig", opened)
+
+        ret, contours, hierarchy = cv2.findContours(opened, mode = cv2.RETR_LIST, method = cv2.CHAIN_APPROX_SIMPLE)
         contours = SmartContours(contours)
         contours.think(targetAspect = aspectRatio)
 
