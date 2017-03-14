@@ -23,7 +23,7 @@ NetworkTables.initialize(server = rioURL)
 sender = NetworkTables.getTable('edison')
 receiver = NetworkTables.getTable('LeapStick')#TODO
 #{SET PARAMETERS}
-kernel = np.ones((30,10),np.uint8)
+kernel = np.ones((20,5),np.uint8)
 aspectRatio = .38
 confidenceThresh = 80
 uniformityThresh = 80
@@ -54,16 +54,20 @@ while (True):
         found = True
     if (found):
         frame = cv2.imdecode(np.fromstring(jpg, dtype = np.uint8), -1)
-        #-----------------------------------------------------------------------MAIN PROCESSING
-        luv = cv2.cvtColor(frame, cv2.COLOR_BGR2LUV)
-        l = luv[:,:,0]
-        l[l >= 160] = 255
-        l[l < 160] = 0
+        #-----------------------------------------------------------------------
+        redmask = frame.copy()
+        redmask[:,:,0] = redmask[:,:,2]
+        redmask[:,:,1] = redmask[:,:,2]
+        filtered = cv2.subtract(frame, redmask)#color filter based on blue LED
 
-        opened = cv2.morphologyEx(l, cv2.MORPH_OPEN, kernel)
-        closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
+        l = cv2.cvtColor(filtered, cv2.COLOR_BGR2LUV)[:,:,0]
+        l[l >= 20] = 255
+        l[l < 20] = 0
 
-        ret, contours, hierarchy = cv2.findContours(closed, mode = cv2.RETR_LIST, method = cv2.CHAIN_APPROX_SIMPLE)
+        closed = cv2.morphologyEx(l, cv2.MORPH_CLOSE, kernel)
+        opened = cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel)
+
+        ret, contours, hierarchy = cv2.findContours(opened, mode = cv2.RETR_LIST, method = cv2.CHAIN_APPROX_SIMPLE)
         contours = SmartContours(contours)
         contours.think(targetAspect = aspectRatio)
 
@@ -81,7 +85,12 @@ while (True):
         elif len(centers) is 1:
             sender.putNumber('gear x', centers[0][0])
             sender.putNumber('gear y', centers[0][1])
+        else:
+            sender.delete('gear x')
+            sender.delete('gear y')
         #-----------------------------------------------------------------------
+        #cv2.imshow('l channel', l)
+        #cv2.imshow('post morphs', opened)
         cv2.imshow('frame', frame)
         found = False
         ch = 0xFF & cv2.waitKey(1)
