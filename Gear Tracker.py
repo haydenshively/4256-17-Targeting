@@ -3,6 +3,7 @@ import numpy as np
 from networktables import NetworkTables
 import urllib
 import time
+import copy
 from shivelyCV import SmartContours
 
 #{DEFINE FUNCTIONS}
@@ -53,11 +54,17 @@ while (True):
         found = True
     if (found):
         frame = cv2.imdecode(np.fromstring(jpg, dtype = np.uint8), -1)
+        redmask = copy.deepcopy(frame);
+        filteredFrame = copy.deepcopy(frame);
+        redmask[:,:,0] = redmask[:,:,2]
+        redmask[:,:,1] = redmask[:,:,2]
+        cv2.subtract(frame, redmask, filteredFrame)
+        
         #-----------------------------------------------------------------------
-        luv = cv2.cvtColor(frame, cv2.COLOR_BGR2LUV)
+        luv = cv2.cvtColor(filteredFrame, cv2.COLOR_BGR2LUV)
         l = luv[:,:,0]
-        l[l >= 140] = 255
-        l[l < 140] = 0
+        l[l >= 30] = 255
+        l[l < 30] = 0
         cv2.imshow("l", l)
 
         opened = cv2.morphologyEx(l, cv2.MORPH_OPEN, kernel)
