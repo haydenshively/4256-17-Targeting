@@ -86,8 +86,11 @@ while (True):
             sender.putNumber('gear x', centers[0][0])
             sender.putNumber('gear y', centers[0][1])
         else:
-            sender.delete('gear x')
-            sender.delete('gear y')
+            sender.putNumber('gear x', 0)
+            sender.putNumber('gear y', 0)
+            #sender.delete('gear x')
+            #sender.delete('gear y')
+           
         #-----------------------------------------------------------------------
         #cv2.imshow('l channel', l)
         #cv2.imshow('post morphs', opened)
