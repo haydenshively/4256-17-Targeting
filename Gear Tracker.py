@@ -24,6 +24,7 @@ sender = NetworkTables.getTable('edison')
 receiver = NetworkTables.getTable('LeapStick')#TODO
 #{SET PARAMETERS}
 kernel = np.ones((20,5),np.uint8)
+lThresh = 20
 aspectRatio = .38
 confidenceThresh = 80
 uniformityThresh = 80
@@ -60,15 +61,20 @@ while (True):
         redmask[:,:,1] = redmask[:,:,2]
         filtered = cv2.subtract(frame, redmask)#color filter based on blue LED
 
+        gesture = receiver.getString("n Circle gesture", "none")#LeapMotion controls
+        if gesture == "clockwise":
+            lThresh = lThresh + 1
+        elif gesture == "counterclockwise":
+            lThresh = lThresh - 1
+        if receiver.getBoolean("m Pinching?", False):
+            lThresh = 20
+
         l = cv2.cvtColor(filtered, cv2.COLOR_BGR2LUV)[:,:,0]
-        l[l >= 20] = 255
-        l[l < 20] = 0
+        l[l >= lThresh] = 255
+        l[l < lThresh] = 0
 
-        closed = cv2.morphologyEx(l, cv2.MORPH_CLOSE, kernel)
         opened = cv2.morphologyEx(l, cv2.MORPH_OPEN, kernel)
-
-        # cv2.findContours() changes 'opened', so we need to show it here
-        cv2.imshow('post morphs', opened)
+        #cv2.imshow('post morphs', opened)#cv2.findContours() changes 'opened', so we need to show it here
 
         ret, contours, hierarchy = cv2.findContours(opened, mode = cv2.RETR_LIST, method = cv2.CHAIN_APPROX_SIMPLE)
         contours = SmartContours(contours)
@@ -91,9 +97,6 @@ while (True):
         else:
             sender.putNumber('gear x', 0)
             sender.putNumber('gear y', 0)
-            #sender.delete('gear x')
-            #sender.delete('gear y')
-           
         #-----------------------------------------------------------------------
         cv2.imshow('l channel', l)
         cv2.imshow('frame', frame)
