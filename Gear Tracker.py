@@ -65,7 +65,10 @@ while (True):
         l[l < 20] = 0
 
         closed = cv2.morphologyEx(l, cv2.MORPH_CLOSE, kernel)
-        opened = cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel)
+        opened = cv2.morphologyEx(l, cv2.MORPH_OPEN, kernel)
+
+        # cv2.findContours() changes 'opened', so we need to show it here
+        cv2.imshow('post morphs', opened)
 
         ret, contours, hierarchy = cv2.findContours(opened, mode = cv2.RETR_LIST, method = cv2.CHAIN_APPROX_SIMPLE)
         contours = SmartContours(contours)
@@ -92,8 +95,7 @@ while (True):
             #sender.delete('gear y')
            
         #-----------------------------------------------------------------------
-        #cv2.imshow('l channel', l)
-        #cv2.imshow('post morphs', opened)
+        cv2.imshow('l channel', l)
         cv2.imshow('frame', frame)
         found = False
         ch = 0xFF & cv2.waitKey(1)
