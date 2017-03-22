@@ -11,6 +11,8 @@ def slope(pointA, pointB):
         return (float(pointA[0] - pointB[0])/float(pointA[1] - pointB[1]))
     except ZeroDivisionError:
         return 0
+def sendToNT(barPos):
+    rockefeller.putNumber('auto mode', barPos)
 #{SETUP STREAM}
 cameraURL = 'http://10.42.56.3/mjpg/video.mjpg'
 stream = urllib.urlopen(cameraURL)
@@ -21,15 +23,19 @@ image_bytes = ''
 rioURL = '10.42.56.2'#'roborio-4256-frc.local'
 NetworkTables.initialize(server = rioURL)
 sender = NetworkTables.getTable('edison')
-receiver = NetworkTables.getTable('LeapStick')
+rockefeller = NetworkTables.getTable('rockefeller')
+leapstick = NetworkTables.getTable('LeapStick')
 #{SET PARAMETERS}
+gesture = 'clockwise'
 kernel = np.ones((20,5),np.uint8)
-lThresh = 20
 aspectRatio = .38
 confidenceThresh = 80
 uniformityThresh = 80
+#{SETUP WINDOWS}
+cv2.namedWindow('peg finder')
+cv2.createTrackbar('auto mode', 'peg finder', 1, 2, sendToNT)
+inAuto = True
 #{MAIN}
-start = int(time.time())
 while (True):
     bytes = stream.read(1024)
     a = bytes.find('\xff\xd8')
@@ -54,25 +60,24 @@ while (True):
         jpg = image_bytes + bytes[:b+2]
         image_bytes = bytes[a:]
         found = True
-    if (found):
+    if found:
         frame = cv2.imdecode(np.fromstring(jpg, dtype = np.uint8), -1)
-        if (int(time.time()) - start <= 15):#AUTONOMOUS ALGORITHM
+        gesture = leapstick.getString('n Circle gesture', 'none') if leapstick.getString('n Circle gesture', 'none') != 'none' else gesture#LeapMotion controls
+        if (gesture == 'clockwise'):#AUTONOMOUS ALGORITHM
+            if not inAuto:
+                cv2.destroyWindow('driver helper')
+                cv2.namedWindow('peg finder')
+                cv2.moveWindow('peg finder', 0, 0)
+                cv2.createTrackbar('auto mode', 'peg finder', 1, 2, sendToNT)
+                inAuto = True
             redmask = frame.copy()
             redmask[:,:,0] = redmask[:,:,2]
             redmask[:,:,1] = redmask[:,:,2]
             filtered = cv2.subtract(frame, redmask)#color filter based on blue LED
 
-            gesture = receiver.getString("n Circle gesture", "none")#LeapMotion controls
-            if gesture == "clockwise":
-                lThresh = lThresh + 1
-            elif gesture == "counterclockwise":
-                lThresh = lThresh - 1
-            if receiver.getBoolean("m Pinching?", False):
-                lThresh = 20
-
             l = cv2.cvtColor(filtered, cv2.COLOR_BGR2LUV)[:,:,0]
-            l[l >= lThresh] = 255
-            l[l < lThresh] = 0
+            l[l >= 20] = 255
+            l[l < 20] = 0
 
             opened = cv2.morphologyEx(l, cv2.MORPH_OPEN, kernel)
             #cv2.imshow('post morphs', opened)#cv2.findContours() changes 'opened', so we need to show it here
@@ -99,9 +104,13 @@ while (True):
                 sender.putNumber('peg x', 0)
                 sender.putNumber('peg y', 0)
             #-----------------------------------------------------------------------
-            cv2.imshow('peg finder', l)
+            cv2.imshow('peg finder', cv2.pyrUp(l))
         else:#TELEOP ALGORITHM
-            cv2.destroyWindow('peg finder')
+            if inAuto:
+                cv2.destroyWindow('peg finder')
+                cv2.namedWindow('driver helper')
+                cv2.moveWindow('driver helper', 0, 0)
+                inAuto = False
             h, w, d = frame.shape
             cropped = frame[2*h/3:h,:,:]
 
@@ -119,6 +128,15 @@ while (True):
             cropped = frame[2*h/3:h,:,:]#must identify cropped again because cv2 functions ruin reference to frame
             cropped[:,:,2] = np.maximum(cropped[:,:,2], filtered)#highlight gears
             frame = cv2.cvtColor(frame, cv2.COLOR_HSV2BGR)
+
+            if rockefeller.getBoolean('lift down', True):
+                cv2.rectangle(frame, (10, h/3), (h/3, 10), (0, 255, 0), -1)
+            else:
+                cv2.rectangle(frame, (10, h/3), (h/3, 10), (0, 0, 255), -1)
+            if rockefeller.getBoolean('clamp open', True):
+                cv2.rectangle(frame, (w - h/3 - 10, h/3), (w - 10, 10), (0, 255, 0), -1)
+            else:
+                cv2.rectangle(frame, (w - h/3 - 10, h/3), (w - 10, 10), (0, 0, 255), -1)
             #-----------------------------------------------------------------------
             cv2.imshow('driver helper', cv2.pyrUp(frame))
 
