@@ -101,6 +101,7 @@ while (True):
             #-----------------------------------------------------------------------
             cv2.imshow('peg finder', l)
         else:#TELEOP ALGORITHM
+            cv2.destroyWindow('peg finder')
             h, w, d = frame.shape
             cropped = frame[2*h/3:h,:,:]
 
