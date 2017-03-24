@@ -80,6 +80,7 @@ while (True):
             l[l < 20] = 0
 
             opened = cv2.morphologyEx(l, cv2.MORPH_OPEN, kernel)
+            frame = cv2.cvtColor(l, cv2.COLOR_GRAY2BGR)
             #cv2.imshow('post morphs', opened)#cv2.findContours() changes 'opened', so we need to show it here
 
             ret, contours, hierarchy = cv2.findContours(opened, mode = cv2.RETR_LIST, method = cv2.CHAIN_APPROX_SIMPLE)
@@ -89,12 +90,12 @@ while (True):
             centers = []
             for i in range(0, contours.rectangles.count()):
                 if (contours.rectangles.confidence(i) > confidenceThresh and contours.rectangles.uniformity(i) > uniformityThresh):
-                    cv2.circle(frame, contours.rectangles.center(i), 6, (255, 102, 178), thickness = -1)
+                    cv2.circle(frame, contours.rectangles.center(i), 6, (102, 102, 255), thickness = -1)
                     centers.append(contours.rectangles.center(i))
             #cv2.putText(frame, str(len(centers)), (0, 0), cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 102, 178), bottomLeftOrigin = True)
             sender.putNumber('targets', len(centers))
             if len(centers) is 2:
-                cv2.line(frame, centers[0], centers[1], (255, 102, 178), thickness = 4)
+                cv2.line(frame, centers[0], centers[1], (102, 102, 255), thickness = 4)
                 sender.putNumber('peg x', (centers[0][0] + centers[1][0])/2)
                 sender.putNumber('peg y', (centers[0][1] + centers[1][1])/2)
             elif len(centers) is 1:
@@ -104,7 +105,7 @@ while (True):
                 sender.putNumber('peg x', 0)
                 sender.putNumber('peg y', 0)
             #-----------------------------------------------------------------------
-            cv2.imshow('peg finder', cv2.pyrUp(l))
+            cv2.imshow('peg finder', cv2.pyrUp(cv2.pyrUp(frame)))
         else:#TELEOP ALGORITHM
             if inAuto:
                 cv2.destroyWindow('peg finder')
@@ -112,20 +113,20 @@ while (True):
                 cv2.moveWindow('driver helper', 0, 0)
                 inAuto = False
             h, w, d = frame.shape
-            cropped = frame[2*h/3:h,:,:]
+            cropped = frame[h/2:h,:,:]
 
             bgmask = cropped.copy()
             bgmask[:,:,1] = bgmask[:,:,1]/5#take out 1/5th of green
             bgmask[:,:,2] = bgmask[:,:,0] + bgmask[:,:,1]#remove blue and green noise from red channel
             filtered = cv2.subtract(cropped, bgmask)
 
-            filtered[filtered[:,:,2] < 13] = (0,0,0)#red thresholding
+            filtered[filtered[:,:,2] < 10] = (0,0,0)#red thresholding
             filtered = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
             filtered[filtered >= 20] = 255
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-            frame[:,:,2] = cv2.equalizeHist(frame[:,:,2])/2#brighten image for drivers
-            cropped = frame[2*h/3:h,:,:]#must identify cropped again because cv2 functions ruin reference to frame
+            frame[:,:,2] = cv2.equalizeHist(frame[:,:,2])/3#brighten image for drivers
+            cropped = frame[h/2:h,:,:]#must identify cropped again because cv2 functions ruin reference to frame
             cropped[:,:,2] = np.maximum(cropped[:,:,2], filtered)#highlight gears
             frame = cv2.cvtColor(frame, cv2.COLOR_HSV2BGR)
 
@@ -138,7 +139,7 @@ while (True):
             else:
                 cv2.rectangle(frame, (w - h/3 - 10, h/3), (w - 10, 10), (0, 0, 255), -1)
             #-----------------------------------------------------------------------
-            cv2.imshow('driver helper', cv2.pyrUp(frame))
+            cv2.imshow('driver helper', cv2.pyrUp(cv2.pyrUp(frame)))
 
         found = False
         ch = 0xFF & cv2.waitKey(1)
